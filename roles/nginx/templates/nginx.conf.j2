@@ -13,13 +13,20 @@ http {
   include       /etc/nginx/mime.types;
   default_type  application/octet-stream;
 
-  log_format  main  '[$time_local] $remote_addr - $remote_user "$request" '
-                    '$status $body_bytes_sent "$http_referer" '
+  # Access logs must not persist credentials: $uri has no query string and
+  # password-reset tokens are masked; Referer is not logged at all
+  map $uri $security_log_path {
+      ~*^/v[0-9]+/passwords/ /passwords/[redacted];
+      default $uri;
+  }
+
+  log_format  main  '[$time_local] $remote_addr - $remote_user "$request_method $security_log_path $server_protocol" '
+                    '$status $body_bytes_sent '
                     '"$http_user_agent" "$http_x_forwarded_for" '
                     '$request_time $upstream_response_time $pipe';
 
-  log_format  proxy_log '[$time_local] $remote_addr - $remote_user "$host$request_uri" '
-                      '$status $body_bytes_sent "$http_referer" '
+  log_format  proxy_log '[$time_local] $remote_addr - $remote_user "$host$security_log_path" '
+                      '$status $body_bytes_sent '
                       '"$http_user_agent" "$http_x_forwarded_for"'
                       ' Proxy: "$proxy_host" "$upstream_addr" $upstream_response_time';
 

@@ -13,8 +13,15 @@ http {
   charset       utf-8;
   client_max_body_size {{ nginx_client_max_body_size }};
 
-  log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
-                    '$status $body_bytes_sent "$http_referer" '
+  # Access logs must not persist credentials: $uri has no query string and
+  # password-reset tokens are masked; Referer is not logged at all
+  map $uri $security_log_path {
+      ~*^/v[0-9]+/passwords/ /passwords/[redacted];
+      default $uri;
+  }
+
+  log_format  main  '$remote_addr - $remote_user [$time_local] "$request_method $security_log_path $server_protocol" '
+                    '$status $body_bytes_sent '
                     '"$http_user_agent" "$http_x_forwarded_for" '
                     '$request_time $upstream_response_time $pipe';
 
