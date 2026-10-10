@@ -19,6 +19,19 @@
   tags:
     - config
 
+- name: Discover freefeed runtime UID/GID
+  ansible.builtin.getent:
+    database: passwd
+    key: freefeed
+  tags:
+    - config
+
+- name: Set container runtime user from host freefeed identity
+  ansible.builtin.set_fact:
+    freefeed_runtime_user: "{{ getent_passwd.freefeed[1] }}:{{ getent_passwd.freefeed[2] }}"
+  tags:
+    - config
+
 - name: Ensure "{{ freefeed_config_dir }}"
   become: yes
   file:
@@ -101,6 +114,25 @@
   file:
     path: "{{ freefeed_log_dir }}"
     state: directory
+    owner: freefeed
+    group: freefeed
+    mode: '0755'
+
+- name: Find existing server log files
+  become: yes
+  find:
+    paths: "{{ freefeed_log_dir }}"
+    patterns: '*.log'
+    file_type: file
+  register: freefeed_log_files
+
+- name: Ensure existing server log files are owned by freefeed
+  become: yes
+  file:
+    path: "{{ item.path }}"
+    owner: freefeed
+    group: freefeed
+  loop: "{{ freefeed_log_files.files }}"
 
 - name: Logrotate config for server logs
   become: yes
@@ -119,12 +151,38 @@
   tags:
     - config
 
+- name: Ensure runtime files dir
+  become: yes
+  file:
+    path: "{{ freefeed_runtime_files_dir }}"
+    state: directory
+    owner: freefeed
+    group: freefeed
+    mode: '0755'
+  tags:
+    - config
+
+- name: Ensure runtime files subdirectories
+  become: yes
+  file:
+    path: "{{ freefeed_runtime_files_dir }}/{{ item }}"
+    state: directory
+    owner: freefeed
+    group: freefeed
+    mode: '0755'
+  loop:
+    - attachments
+    - profilepics
+  tags:
+    - config
+
 - name: Start server containers
   become: yes
   docker_container:
     name: "freefeed-server-{{ freefeed_env }}-{{ ansible_loop.index }}"
     image: "ghcr.io/freefeed/freefeed-server:{{ freefeed_server_version }}"
     command: "yarn start"
+    user: "{{ freefeed_runtime_user }}"
     init: yes
     published_ports:
       - "{{ item }}:3000"
@@ -135,6 +193,7 @@
       - "{{ freefeed_config_dir }}/mailchecker.txt:/etc/freefeed/mailchecker.txt:ro"
       - "{{ freefeed_log_dir }}:/server/log"
       - "{{ home_dir }}/{{ freefeed_env }}/media-tmp:{{ shared_media_dir }}"
+      - "{{ freefeed_runtime_files_dir }}:/server/public/files"
     env:
       NODE_ENV: production
       MONITOR_PREFIX: "{{ monitor_prefix }}"

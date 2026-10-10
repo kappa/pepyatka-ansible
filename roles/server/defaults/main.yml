@@ -6,3 +6,9 @@ freefeed_config_dir: "/etc/freefeed"
 
 home_dir: "/var/lib/freefeed"
 shared_media_dir: "/media-tmp"
+
+# Host directory bind-mounted at /server/public/files when server containers
+# run under the numeric host freefeed UID (see tasks/main.yml). The
+# attachments/ and profilepics/ subdirectories are pre-created there because
+# profile-picture writes do not create parent directories.
+freefeed_runtime_files_dir: "{{ home_dir }}/{{ freefeed_env }}/runtime-files"
