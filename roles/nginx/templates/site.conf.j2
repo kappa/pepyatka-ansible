@@ -1,7 +1,7 @@
 upstream {{ freefeed_site }}_server {
   ip_hash;
 {% for port in range(freefeed_base_port, freefeed_base_port+freefeed_server_instances, 1) %}
-  server localhost:{{ port }};
+  server 127.0.0.1:{{ port }};
 {% endfor %}
 }
 

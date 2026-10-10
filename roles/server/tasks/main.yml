@@ -127,7 +127,9 @@
     command: "yarn start"
     init: yes
     published_ports:
-      - "{{ item }}:3000"
+      # Loopback-only: nginx proxies to localhost, and trusted proxy headers
+      # must never be reachable directly from untrusted networks
+      - "127.0.0.1:{{ item }}:3000"
     volumes:
       - "{{ freefeed_config_dir }}/local-{{ freefeed_env }}.json:/server/config/local-{{ freefeed_env }}.json:ro"
       - "{{ freefeed_config_dir }}/welcome-directs/local-{{ freefeed_env }}.yml:/server/config/welcome-directs/local-{{ freefeed_env }}.yml:ro"
